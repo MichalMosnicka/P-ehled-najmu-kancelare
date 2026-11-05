@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="cs" class="h-full bg-slate-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Přehled Nájmu Kanceláře</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Export Libraries: SheetJS (XLSX) & html2pdf.js (PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 9999px; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between pb-12">
+
+    <!-- Header / Navigation Bar -->
+    <header class="bg-slate-800/90 backdrop-blur border-b border-slate-700/80 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            
+            <!-- Logo / Brand Title -->
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-blue-600/20 text-blue-400 rounded-xl border border-blue-500/30">
+                    <i class="fa-solid fa-building text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white">Přehled Nájmu Kanceláře</h1>
+                    <p class="text-xs text-slate-400">Automatický monitoring plateb 4 nájemníků</p>
+                </div>
+            </div>
+
+            <!-- Controls: Year Selector, Export & Simulation Buttons -->
+            <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+                <!-- Year Select Dropdown -->
+                <div class="flex items-center gap-2 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-1.5">
+                    <i class="fa-regular fa-calendar-days text-blue-400 text-xs"></i>
+                    <select id="yearSelect" onchange="changeYear()" class="bg-transparent text-xs font-semibold text-slate-200 focus:outline-none cursor-pointer">
+                        <option value="2026" selected>Rok 2026</option>
+                        <option value="2027">Rok 2027</option>
+                    </select>
+                </div>
+
+                <!-- Export Excel Button -->
+                <button onclick="exportToExcel()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-md">
+                    <i class="fa-solid fa-file-excel text-sm"></i>
+                    <span>Export Excel (.xlsx)</span>
+                </button>
+
+                <!-- Export PDF Button -->
+                <button onclick="exportToPDF()" class="bg-rose-700 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-md">
+                    <i class="fa-solid fa-file-pdf text-sm"></i>
+                    <span>Export PDF</span>
+                </button>
+
+                <!-- Simulate Payment Button -->
+                <button onclick="simulovatPlatbu()" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-lg shadow-blue-900/40">
+                    <i class="fa-solid fa-bolt text-amber-300 text-sm"></i>
+                    <span>Simulovat platbu</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6" id="pdfExportArea">
+
+        <!-- Monthly Navigation Tabs Container -->
+        <div class="bg-slate-800/50 border border-slate-700/60 p-1.5 rounded-2xl">
+            <div class="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 sm:pb-0" id="monthTabsContainer">
+                <!-- Dynamically generated month tabs -->
+            </div>
+        </div>
+
+        <!-- Monthly Status Overview Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
+            <!-- Card 1: Total Collected vs Target -->
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 backdrop-blur">
+                <div class="text-xs text-slate-400 font-medium uppercase tracking-wider">Vybráno tento měsíc</div>
+                <div class="flex items-baseline justify-between mt-2">
+                    <div class="text-3xl font-bold text-white" id="statCollected">0 Kč</div>
+                    <div class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-700/80 text-slate-300">z 4 220 Kč</div>
+                </div>
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-700/50 rounded-full h-2.5 mt-4 overflow-hidden">
+                    <div id="statProgressBar" class="bg-blue-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Card 2: Status & Pending Tenants List -->
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 backdrop-blur col-span-1 md:col-span-2 flex flex-col justify-between">
+                <div class="text-xs text-slate-400 font-medium uppercase tracking-wider">Stav zaplacení nájmu</div>
+                
+                <div class="flex items-center gap-3 mt-2">
+                    <div id="statusBadgeIcon" class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                    <div>
+                        <div id="statusBadgeText" class="text-lg font-bold text-white">Čeká se na platby</div>
+                        <div id="statusBadgeSub" class="text-xs text-slate-400">Přehled doručení za tento měsíc</div>
+                    </div>
+                </div>
+
+                <div class="text-sm font-medium text-slate-200 mt-4 flex items-center gap-2" id="statusMessage">
+                    <!-- Text: "Čeká se na: [Jména Nájemníků]" -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Spreadsheet Table Component (5 Columns x 5 Rows) -->
+        <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl shadow-xl overflow-hidden backdrop-blur">
+            
+            <div class="p-4 border-b border-slate-700/80 bg-slate-800/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-table-cells text-emerald-400"></i>
+                    <h2 class="font-bold text-slate-200 text-base" id="currentSheetTitle">Přehled plateb: Listopad 2026</h2>
+                </div>
+                <span class="text-xs bg-slate-700/80 text-slate-300 px-2.5 py-1 rounded-md font-mono">Struktura: 5 Sloupců × 5 Řádků</span>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-950/80 border-b border-slate-700 text-slate-400 font-semibold text-xs uppercase tracking-wider">
+                            <th class="py-4 px-5 border-r border-slate-800/80">Jméno a příjmení</th>
+                            <th class="py-4 px-5 border-r border-slate-800/80">Přesný čas transakce</th>
+                            <th class="py-4 px-5 border-r border-slate-800/80">Přesné datum transakce</th>
+                            <th class="py-4 px-5 border-r border-slate-800/80 text-right">Požadovaná částka</th>
+                            <th class="py-4 px-5 text-right">Poslaná částka</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-700/60 font-mono text-xs sm:text-sm">
+                        <!-- Rows 1 to 5 generated via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="p-3 bg-slate-900/60 border-t border-slate-800 text-xs text-slate-400 flex flex-col sm:flex-row justify-between items-center gap-2">
+                <span>Vzorec v buňce E5: <code class="bg-slate-800 text-emerald-400 px-2 py-0.5 rounded font-mono">=SUMA(E1:E4)</code></span>
+                <span class="text-slate-500">Česká spořitelna (George API / Webhook Ready)</span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-2xl z-50 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-3 border border-slate-700">
+        <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div>
+            <h5 class="font-bold text-sm" id="toastTitle">Oznámení</h5>
+            <p class="text-xs text-slate-300" id="toastDesc">Akce byla úspěšně provedena.</p>
+        </div>
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        // Available Years and Months configuration
+        const yearMonths = {
+            '2026': ['Listopad', 'Prosinec'],
+            '2027': [
+                'Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
+                'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'
+            ]
+        };
+
+        // Standard Tenants List (4 tenants, 1,055 CZK each -> 4,220 CZK total)
+        const tenants = [
+            { id: 1, name: 'Jan Novák', reqAmount: 1055, fixed: false },
+            { id: 2, name: 'Petr Svoboda', reqAmount: 1055, fixed: false },
+            { id: 3, name: 'Karel Dvořák', reqAmount: 1055, fixed: false },
+            { id: 4, name: 'Michal', reqAmount: 1055, fixed: true }
+        ];
+
+        let currentYear = '2026';
+        let currentMonth = 'Listopad';
+
+        // Payment Database initialized with sample data
+        let paymentDatabase = {
+            '2026-Listopad-1': { time: '08:14:22', date: '01.11.2026', amount: 1055 },
+            '2026-Listopad-2': { time: '14:05:01', date: '02.11.2026', amount: 1055 }
+        };
+
+        // Switch active year
+        function changeYear() {
+            currentYear = document.getElementById('yearSelect').value;
+            currentMonth = yearMonths[currentYear][0];
+            renderTabs();
+            renderTable();
+        }
+
+        // Switch active month tab
+        function selectMonth(month) {
+            currentMonth = month;
+            renderTabs();
+            renderTable();
+        }
+
+        // Render Month Navigation Tabs
+        function renderTabs() {
+            const container = document.getElementById('monthTabsContainer');
+            container.innerHTML = '';
+
+            yearMonths[currentYear].forEach(month => {
+                const isActive = month === currentMonth;
+                const btn = document.createElement('button');
+                btn.onclick = () => selectMonth(month);
+                btn.className = `px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
+                    isActive 
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
+                }`;
+                btn.innerText = `${month} ${currentYear}`;
+                container.appendChild(btn);
+            });
+        }
+
+        // Format Currency Helper (CZK)
+        function formatCZK(amount) {
+            return amount.toLocaleString('cs-CZ') + ' Kč';
+        }
+
+        // Helper to get two-digit month string
+        function getMonthNumber(monthName) {
+            const months = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
+            const idx = months.indexOf(monthName) + 1;
+            return idx < 10 ? '0' + idx : '' + idx;
+        }
+
+        // Get payment details for a tenant (handles Michal fixed auto-fill)
+        function getPaymentForTenant(year, month, tenant) {
+            if (tenant.fixed) {
+                const monthNum = getMonthNumber(month);
+                return {
+                    time: '01:00:00',
+                    date: `01.${monthNum}.${year}`,
+                    amount: 1055
+                };
+            }
+            const key = `${year}-${month}-${tenant.id}`;
+            return paymentDatabase[key] || null;
+        }
+
+        // Render Main Table & Update Summary Cards
+        function renderTable() {
+            document.getElementById('currentSheetTitle').innerText = `Měsíční List: ${currentMonth} ${currentYear}`;
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            let totalSent = 0;
+            let pendingTenants = [];
+            let paidCount = 0;
+
+            // Render Rows 1 to 4 (Tenants)
+            tenants.forEach((tenant) => {
+                const payment = getPaymentForTenant(currentYear, currentMonth, tenant);
+
+                if (payment) {
+                    totalSent += payment.amount;
+                    paidCount++;
+                } else {
+                    pendingTenants.push(tenant.name);
+                }
+
+                const rowHtml = `
+                    <tr class="hover:bg-slate-700/30 transition">
+                        <td class="py-3.5 px-5 border-r border-slate-800/80 font-sans font-medium text-slate-200">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full ${payment ? 'bg-emerald-400 shadow-sm shadow-emerald-500' : 'bg-amber-400'}"></span>
+                                ${tenant.name} ${tenant.fixed ? '<span class="text-[10px] bg-blue-900/60 text-blue-300 px-1.5 py-0.5 rounded border border-blue-700/50">Fixní</span>' : ''}
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-5 border-r border-slate-800/80 text-slate-300">
+                            ${payment ? payment.time : '--:--:--'}
+                        </td>
+                        <td class="py-3.5 px-5 border-r border-slate-800/80 text-slate-300">
+                            ${payment ? payment.date : '--.--.----'}
+                        </td>
+                        <td class="py-3.5 px-5 border-r border-slate-800/80 text-right text-slate-400 font-medium">
+                            ${formatCZK(tenant.reqAmount)}
+                        </td>
+                        <td class="py-3.5 px-5 text-right font-bold ${payment ? 'text-emerald-400' : 'text-slate-500'}">
+                            ${payment ? formatCZK(payment.amount) : '0 Kč'}
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += rowHtml;
+            });
+
+            // Render Row 5 (TOTAL / CELKEM)
+            const row5Html = `
+                <tr class="bg-blue-950/40 border-t-2 border-blue-500/50 font-bold">
+                    <td class="py-4 px-5 border-r border-slate-800/80 font-sans text-blue-400 uppercase tracking-wider">
+                        celkem
+                    </td>
+                    <td class="py-4 px-5 border-r border-slate-800/80 text-blue-300">
+                        12:00:00
+                    </td>
+                    <td class="py-4 px-5 border-r border-slate-800/80 text-blue-300">
+                        25. ${currentMonth}. ${currentYear}
+                    </td>
+                    <td class="py-4 px-5 border-r border-slate-800/80 text-right text-slate-200">
+                        4 220 Kč
+                    </td>
+                    <td class="py-4 px-5 text-right text-emerald-400 text-base" id="cell-E5">
+                        ${formatCZK(totalSent)}
+                    </td>
+                </tr>
+            `;
+            tbody.innerHTML += row5Html;
+
+            // Update Summary Cards
+            document.getElementById('statCollected').innerText = formatCZK(totalSent);
+            const pct = Math.min((totalSent / 4220) * 100, 100);
+            const progressBar = document.getElementById('statProgressBar');
+            progressBar.style.width = `${pct}%`;
+
+            const icon = document.getElementById('statusBadgeIcon');
+            const title = document.getElementById('statusBadgeText');
+            const sub = document.getElementById('statusBadgeSub');
+            const statusMsg = document.getElementById('statusMessage');
+
+            if (pendingTenants.length === 0) {
+                progressBar.className = 'bg-emerald-500 h-2.5 rounded-full transition-all duration-500';
+                icon.className = 'w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold';
+                icon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+                title.innerText = 'Kompletně zaplaceno';
+                sub.innerText = '4 ze 4 nájemníků zaplatili';
+                statusMsg.innerHTML = `<span class="text-emerald-400 flex items-center gap-1.5"><i class="fa-solid fa-circle-check"></i> Všechny platby pro měsíc ${currentMonth} ${currentYear} byly úspěšně přijaty!</span>`;
+            } else {
+                progressBar.className = 'bg-amber-500 h-2.5 rounded-full transition-all duration-500';
+                icon.className = 'w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold';
+                icon.innerHTML = '<i class="fa-solid fa-clock"></i>';
+                title.innerText = `Zaplaceno ${paidCount} / 4`;
+                sub.innerText = `Zbývá vybrat: ${formatCZK(4220 - totalSent)}`;
+                statusMsg.innerHTML = `
+                    <span class="text-amber-400 flex items-center gap-1.5"><i class="fa-solid fa-hourglass-half"></i> Čeká se na:</span>
+                    <strong class="text-white font-semibold">${pendingTenants.join(', ')}</strong>
+                `;
+            }
+        }
+
+        // Simulate Incoming Payment
+        function simulovatPlatbu() {
+            const unpaidTenants = tenants.filter(t => !getPaymentForTenant(currentYear, currentMonth, t));
+            
+            if (unpaidTenants.length === 0) {
+                showToast("Všechny platby dorazily!", `Pro měsíc ${currentMonth} ${currentYear} již všichni 4 nájemníci zaplatili.`);
+                return;
+            }
+
+            const targetTenant = unpaidTenants[0];
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0]; // HH:MM:SS
+            const monthNum = getMonthNumber(currentMonth);
+            const dateStr = `${String(now.getDate()).padStart(2, '0')}.${monthNum}.${currentYear}`;
+
+            paymentDatabase[`${currentYear}-${currentMonth}-${targetTenant.id}`] = {
+                time: timeStr,
+                date: dateStr,
+                amount: 1055
+            };
+
+            renderTable();
+            showToast("Platba dorazila!", `${targetTenant.name} právě zaplatil 1 055 Kč (${currentMonth} ${currentYear}).`);
+        }
+
+        // Export All Sheets / Active Year to Excel (.xlsx)
+        function exportToExcel() {
+            const wb = XLSX.utils.book_new();
+
+            yearMonths[currentYear].forEach(month => {
+                const sheetData = [
+                    ["Jméno a příjmení", "Přesný čas transakce", "Přesné datum transakce", "Požadovaná částka", "Poslaná částka"]
+                ];
+
+                tenants.forEach(tenant => {
+                    const payment = getPaymentForTenant(currentYear, month, tenant);
+                    sheetData.push([
+                        tenant.name,
+                        payment ? payment.time : "--:--:--",
+                        payment ? payment.date : "--.--.----",
+                        tenant.reqAmount,
+                        payment ? payment.amount : 0
+                    ]);
+                });
+
+                // Row 5: CELKEM with Excel Formula SUM(E2:E5) for rows E2 to E5
+                sheetData.push([
+                    "celkem",
+                    "12:00:00",
+                    `25. ${month}. ${currentYear}`,
+                    4220,
+                    { f: "SUM(E2:E5)" }
+                ]);
+
+                const ws = XLSX.utils.aoa_to_sheet(sheetData);
+                
+                // Column width formatting
+                ws['!cols'] = [
+                    { wch: 22 },
+                    { wch: 20 },
+                    { wch: 22 },
+                    { wch: 18 },
+                    { wch: 18 }
+                ];
+
+                XLSX.utils.book_append_sheet(wb, ws, `${month}_${currentYear}`);
+            });
+
+            XLSX.writeFile(wb, `Prehled_Najmu_Kancelar_${currentYear}.xlsx`);
+            showToast("Excel vygenerován!", `Soubor Prehled_Najmu_Kancelar_${currentYear}.xlsx byl stažen.`);
+        }
+
+        // Export Current Dashboard View to PDF
+        function exportToPDF() {
+            showToast("Příprava PDF...", "Generuji tiskový výstup aktuálního měsíce.");
+            const element = document.getElementById('pdfExportArea');
+            
+            const opt = {
+                margin:       [0.3, 0.3, 0.3, 0.3],
+                filename:     `Prehled_Najmu_Kancelar_${currentMonth}_${currentYear}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#0f172a' },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                showToast("PDF vygenerováno!", `Dokument Prehled_Najmu_Kancelar_${currentMonth}_${currentYear}.pdf byl uložen.`);
+            });
+        }
+
+        // Toast Notification System
+        function showToast(title, desc) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastTitle').innerText = title;
+            document.getElementById('toastDesc').innerText = desc;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+
+        // Initial Boot
+        window.onload = function() {
+            renderTabs();
+            renderTable();
+        };
+    </script>
+</body>
+</html>
