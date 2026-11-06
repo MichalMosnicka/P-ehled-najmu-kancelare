@@ -150,7 +150,7 @@
 
             <div class="px-5 py-3 bg-[#0b0f17]/40 border-t border-gray-800 flex justify-between items-center text-[11px] text-gray-400 font-mono">
                 <div class="text-emerald-400/80">
-                    <span class="bg-emerald-950/60 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800/40">Automatická kontrola podle účtů</span>
+                    <span class="bg-emerald-950/60 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800/40">Jednotný sběrný účet</span>
                 </div>
                 <div>
                     Česká spořitelna (George API)
@@ -167,7 +167,7 @@
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
             
-            <h3 class="text-base font-bold text-white mb-1" id="qrModalJmeno">Platba pro Michala Mošničku</h3>
+            <h3 class="text-base font-bold text-white mb-1" id="qrModalJmeno">Platba nájmu</h3>
             <p class="text-xs text-gray-400 mb-4">Naskenujte v aplikaci vašeho bankovnictví</p>
 
             <div class="bg-white p-4 rounded-xl inline-block mb-4 shadow-inner">
@@ -184,8 +184,8 @@
                     <span class="font-bold text-amber-400" id="qrModalVS">585</span>
                 </div>
                 <div class="flex justify-between">
-                    <span class="text-gray-500">Číslo účtu:</span>
-                    <span class="text-gray-300" id="qrModalUcet">4727177083/0800</span>
+                    <span class="text-gray-500">Cílový účet:</span>
+                    <span class="text-gray-300">4727177083/0800</span>
                 </div>
             </div>
 
@@ -202,12 +202,15 @@
         const CASTEK_NA_OSOBU = 1055;
         const CELKEM_NÁJEM = 4220;
 
-        // Seznam 4 nájemníků
+        // Váš hlavní jednotný účet, kam všichni platí
+        const HLAVNI_UCET = "4727177083/0800";
+
+        // Seznam 4 nájemníků (každý má svůj VS nebo identifikátor pro spárování z tabulky)
         const SEZNAM_NAJEMNIKU = [
-            { id: "mosnicka", jmeno: "Michal Mošnička", ucet: "4727177083/0800", vs: "585" },
-            { id: "parizek", jmeno: "Dominik Pařízek", ucet: "2827712013/0800", vs: "585" },
-            { id: "klimova", jmeno: "Petra Klímová", ucet: "4912405033/0800", vs: "585" },
-            { id: "paces", jmeno: "Vít Pačes", ucet: "894545113/0800", vs: "585" }
+            { id: "mosnicka", jmeno: "Michal Mošnička", vs: "585" },
+            { id: "parizek", jmeno: "Dominik Pařízek", vs: "586" },
+            { id: "klimova", jmeno: "Petra Klímová", vs: "587" },
+            { id: "paces", jmeno: "Vít Pačes", vs: "588" }
         ];
 
         let nacteneTransakce = [];
@@ -297,13 +300,10 @@
             telo.innerHTML = '';
 
             SEZNAM_NAJEMNIKU.forEach(n => {
-                // Očistíme číslo účtu od kódů banky
-                const cisteCisloUctu = n.ucet.split('/')[0].trim();
-
-                // Spárování výhradně podle čísla účtu
+                // Spárování primárně podle variabilního symbolu (VS) v transakci
                 const platba = transakceMesic.find(t => {
-                    const odUcet = t.od.toString().trim();
-                    return odUcet.includes(cisteCisloUctu);
+                    const vsTransakce = t.simbol.toString().trim();
+                    return vsTransakce === n.vs.trim();
                 });
 
                 const zaplaceno = platba ? platba.castka : 0;
@@ -337,7 +337,7 @@
                     </td>
                     <td class="py-3 px-4 text-right">
                         ${!jeZaplaceno 
-                            ? `<button onclick="otvriQR('${n.jmeno}', '${n.ucet}', '${n.vs}')" class="px-2 py-1 text-[11px] bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded inline-flex items-center gap-1 transition">
+                            ? `<button onclick="otvriQR('${n.jmeno}', '${n.vs}')" class="px-2 py-1 text-[11px] bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded inline-flex items-center gap-1 transition">
                                   <i data-lucide="qr-code" class="w-3 h-3"></i> QR Kód
                                </button>` 
                             : `<span class="text-gray-600 text-[11px]">-</span>`
@@ -379,14 +379,12 @@
             lucide.createIcons();
         }
 
-        // Ovládání QR okna
-        function otvriQR(jmeno, ucet, vs) {
+        // Ovládání QR okna (vždy s Vaším hlavním účtem a jedinečným VS)
+        function otvriQR(jmeno, vs) {
             document.getElementById('qrModalJmeno').innerText = `Platba pro: ${jmeno}`;
-            document.getElementById('qrModalUcet').innerText = ucet;
             document.getElementById('qrModalVS').innerText = vs;
             
-            // Vygenerování přímého QR kódu pro českou QR platbu (SPD)
-            const cisteCislo = ucet.split('/')[0];
+            const cisteCislo = HLAVNI_UCET.split('/')[0];
             const qrData = `SPD*1.0*ACC:CZ580800000000${cisteCislo}*AM:1055.00*CC:CZK*VS:${vs}*MSG:Najem%20kancelar`;
             document.getElementById('qrModalImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData)}`;
             
