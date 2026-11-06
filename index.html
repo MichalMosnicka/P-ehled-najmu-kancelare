@@ -169,8 +169,8 @@
             <h3 class="text-base font-bold text-white mb-1" id="qrModalJmeno">Platba nájmu</h3>
             <p class="text-xs text-gray-400 mb-4">Naskenujte v aplikaci vašeho bankovnictví</p>
 
-            <div class="bg-white p-4 rounded-xl inline-block mb-4 shadow-inner">
-                <img id="qrModalImg" src="" alt="QR Platba" class="w-48 h-48 mx-auto">
+            <div class="bg-white p-3 rounded-xl inline-block mb-4 shadow-inner">
+                <img src="IMG_0921_2.jpg" alt="QR Platba" class="w-48 h-48 mx-auto object-contain">
             </div>
 
             <div class="bg-[#0b0f17] rounded-lg p-3 text-left font-mono text-xs space-y-1 text-gray-300 border border-gray-800">
@@ -183,8 +183,8 @@
                     <span class="font-bold text-amber-400">585</span>
                 </div>
                 <div class="flex justify-between">
-                    <span class="text-gray-500">Cílový účet:</span>
-                    <span class="text-gray-300">4727177083/0800</span>
+                    <span class="text-gray-500">Číslo účtu:</span>
+                    <span class="font-bold text-white">7418065399/0800</span>
                 </div>
             </div>
 
@@ -200,7 +200,6 @@
 
         const CASTEK_NA_OSOBU = 1055;
         const CELKEM_NÁJEM = 4220;
-        const HLAVNI_UCET = "4727177083/0800";
 
         // Seznam 4 nájemníků s jejich čísly účtů
         const SEZNAM_NAJEMNIKU = [
@@ -374,14 +373,9 @@
             lucide.createIcons();
         }
 
-        // Ovládání QR okna
+        // Otevření modálního okna
         function otvriQR(jmeno) {
             document.getElementById('qrModalJmeno').innerText = `Platba pro: ${jmeno}`;
-            
-            const cisteCislo = HLAVNI_UCET.split('/')[0];
-            const qrData = `SPD*1.0*ACC:CZ580800000000${cisteCislo}*AM:1055.00*CC:CZK*VS:585*MSG:Najem%20kancelar`;
-            document.getElementById('qrModalImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData)}`;
-            
             document.getElementById('qrModal').classList.remove('hidden');
             document.getElementById('qrModal').classList.add('flex');
         }
