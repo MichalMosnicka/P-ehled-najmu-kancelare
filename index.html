@@ -98,7 +98,6 @@
                 <div class="flex items-baseline gap-2">
                     <span id="vybranoCastka" class="text-3xl font-extrabold text-white">0 Kč</span>
                 </div>
-                <!-- Progres bar -->
                 <div class="w-full bg-gray-800 h-2 rounded-full mt-4 overflow-hidden">
                     <div id="vybranoProgres" class="bg-blue-500 h-full w-0 transition-all duration-500"></div>
                 </div>
@@ -139,7 +138,8 @@
                             <th class="py-3 px-4">Přesné datum transakce</th>
                             <th class="py-3 px-4">Požadovaná částka</th>
                             <th class="py-3 px-4">Poslaná částka</th>
-                            <th class="py-3 px-4 text-right">Stav</th>
+                            <th class="py-3 px-4 text-center">Stav</th>
+                            <th class="py-3 px-4 text-right">Platba</th>
                         </tr>
                     </thead>
                     <tbody id="tabulkaTelo" class="divide-y divide-gray-800/60 font-mono">
@@ -148,24 +148,57 @@
                 </table>
             </div>
 
-            <!-- Patka tabulky -->
             <div class="px-5 py-3 bg-[#0b0f17]/40 border-t border-gray-800 flex justify-between items-center text-[11px] text-gray-400 font-mono">
                 <div class="text-emerald-400/80">
-                    Vzorec <span class="bg-emerald-950/60 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800/40"></span>
+                    Vzorec v buňce E5: <span class="bg-emerald-950/60 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800/40">=SUMA(E1:E4)</span>
                 </div>
                 <div>
-                    Automatický Import
+                    Česká spořitelna (George API / Make.com Webhook)
                 </div>
             </div>
         </div>
 
     </main>
 
+    <!-- Modal pro zobrazení QR Kódu -->
+    <div id="qrModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-[#131b2e] border border-[#1e293b] rounded-2xl p-6 max-w-sm w-full text-center relative shadow-2xl">
+            <button onclick="zavriQR()" class="absolute top-4 right-4 text-gray-400 hover:text-white transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <h3 class="text-base font-bold text-white mb-1" id="qrModalJmeno">Platba pro Michala Mošničku</h3>
+            <p class="text-xs text-gray-400 mb-4">Naskenujte v aplikaci vašeho bankovnictví</p>
+
+            <div class="bg-white p-4 rounded-xl inline-block mb-4 shadow-inner">
+                <img id="qrModalImg" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=SPD*1.0*ACC:CZ5808000000004727177083*AM:1055.00*CC:CZK*VS:585*MSG:Najem%20kancelar" alt="QR Platba" class="w-48 h-48 mx-auto">
+            </div>
+
+            <div class="bg-[#0b0f17] rounded-lg p-3 text-left font-mono text-xs space-y-1 text-gray-300 border border-gray-800">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Částka:</span>
+                    <span class="font-bold text-white">1 055,00 Kč</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Variabilní symbol:</span>
+                    <span class="font-bold text-amber-400">585</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Číslo účtu:</span>
+                    <span class="text-gray-300">4727177083/0800</span>
+                </div>
+            </div>
+
+            <button onclick="zavriQR()" class="w-full mt-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs rounded-lg transition">
+                Zavřít
+            </button>
+        </div>
+    </div>
+
     <script>
-        // CSV URL z vaší publikované Google Tabulky (vloženo napevno)
+        // CSV URL z vaší publikované Google Tabulky
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRClPJtdVSLn5IyWToiCJptloub9lGz78BDnriE84kKa58RAndNQHEF1fxZZnQ-9Qrzb3Qao6uvfNLq/pub?output=csv';
 
-        // Částka jednoho nájemníka a celková výše za měsíc
         const CASTEK_NA_OSOBU = 1055;
         const CELKEM_NÁJEM = 4220;
 
@@ -179,13 +212,11 @@
 
         let nacteneTransakce = [];
 
-        // Inicializace ikonek
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             nactiData();
         });
 
-        // Načtení dat z CSV tabulky
         async function nactiData() {
             const stavEl = document.getElementById('stavPropojeni');
             stavEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span> Načítám data...`;
@@ -207,7 +238,6 @@
             vyykresliData();
         }
 
-        // Jednoduchý parser CSV
         function parsujCSV(text) {
             const radky = text.split(/\r\n|\n/);
             if (radky.length < 2) return [];
@@ -226,7 +256,6 @@
             for (let i = 1; i < radky.length; i++) {
                 if (!radky[i].trim()) continue;
                 
-                // Rozdělení podle čárky (ošetření uvozovek)
                 const bunky = radky[i].split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(b => b.trim().replace(/^"|"$/g, ''));
                 
                 if (bunky.length > 1) {
@@ -247,19 +276,16 @@
             vyykresliData();
         }
 
-        // Hlavní logika spárování a vykreslení
         function vyykresliData() {
-            const vybraneObdobi = document.getElementById('obdobiSelect').value; // např. "2026-11"
+            const vybraneObdobi = document.getElementById('obdobiSelect').value;
             const [vybranyRok, vybranyMesicCislo] = vybraneObdobi.split('-');
             const mesicInt = parseInt(vybranyMesicCislo, 10);
 
-            // Názvy měsíců
             const nazvyMesicu = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
             const nazevMesice = nazvyMesicu[mesicInt - 1];
 
             document.getElementById('tabulkaNadpis').innerText = `Přehled plateb: ${nazevMesice} ${vybranyRok}`;
 
-            // Vyfiltrujeme transakce pro daný rok a měsíc
             const transakceMesic = nacteneTransakce.filter(t => {
                 const r = t.rok.toString().trim();
                 const m = parseInt(t.mesic, 10);
@@ -271,7 +297,6 @@
             telo.innerHTML = '';
 
             SEZNAM_NAJEMNIKU.forEach(n => {
-                // Hledáme odpovídající platbu pro daného nájemníka
                 const platba = transakceMesic.find(t => {
                     if (n.id === "mosnicka") {
                         return t.simbol.toString().trim() === "585" || 
@@ -285,7 +310,7 @@
                 celkemZaplaceno += zaplaceno;
 
                 const datumStr = platba ? `${platba.den}. ${platba.mesic}. ${platba.rok}` : '-';
-                const casStr = platba ? '08:00' : '-'; // Výchozí nebo prázdný čas
+                const casStr = platba ? '08:00' : '-';
 
                 const jeZaplaceno = zaplaceno >= CASTEK_NA_OSOBU;
 
@@ -304,17 +329,24 @@
                     <td class="py-3 px-4 font-bold ${jeZaplaceno ? 'text-emerald-400' : (zaplaceno > 0 ? 'text-amber-400' : 'text-rose-400')}">
                         ${zaplaceno.toLocaleString('cs-CZ')} Kč
                     </td>
-                    <td class="py-3 px-4 text-right">
+                    <td class="py-3 px-4 text-center">
                         ${jeZaplaceno 
                             ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-sans font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Zaplaceno</span>`
-                            : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-sans font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20"><i data-lucide="alert-circle" class="w-3 h-3"></i> Nezaplno</span>`
+                            : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-sans font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20"><i data-lucide="alert-circle" class="w-3 h-3"></i> Nezaplaceno</span>`
+                        }
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                        ${!jeZaplaceno 
+                            ? `<button onclick="otvriQR('${n.jmeno}', '${n.vs}')" class="px-2 py-1 text-[11px] bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded inline-flex items-center gap-1 transition">
+                                  <i data-lucide="qr-code" class="w-3 h-3"></i> QR Kód
+                               </button>` 
+                            : `<span class="text-gray-600 text-[11px]">-</span>`
                         }
                     </td>
                 `;
                 telo.appendChild(tr);
             });
 
-            // Aktualizace horních karet
             document.getElementById('vybranoCastka').innerText = `${celkemZaplaceno.toLocaleString('cs-CZ')} Kč`;
             const procento = Math.min(100, Math.round((celkemZaplaceno / CELKEM_NÁJEM) * 100));
             document.getElementById('vybranoProgres').style.width = `${procento}%`;
@@ -345,6 +377,18 @@
             }
 
             lucide.createIcons();
+        }
+
+        // Ovládání QR okna
+        function otvriQR(jmeno, vs) {
+            document.getElementById('qrModalJmeno').innerText = `Platba pro: ${jmeno}`;
+            document.getElementById('qrModal').classList.remove('hidden');
+            document.getElementById('qrModal').classList.add('flex');
+        }
+
+        function zavriQR() {
+            document.getElementById('qrModal').classList.add('hidden');
+            document.getElementById('qrModal').classList.remove('flex');
         }
 
         // Export do Excelu
