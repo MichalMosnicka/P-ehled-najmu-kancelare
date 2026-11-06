@@ -45,7 +45,7 @@
             </div>
             
             <div class="flex items-center gap-2 sm:gap-3">
-                <button onclick="nactiData()" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg border border-gray-700 transition">
+                <button id="btnObnovit" onclick="nactiData()" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg border border-gray-700 transition">
                     <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
                     <span>Obnovit data</span>
                 </button>
@@ -195,21 +195,21 @@
     </div>
 
     <script>
-        // CSV URL z vaší publikované Google Tabulky
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRClPJtdVSLn5IyWToiCJptloub9lGz78BDnriE84kKa58RAndNQHEF1fxZZnQ-9Qrzb3Qao6uvfNLq/pub?output=csv';
 
         const CASTEK_NA_OSOBU = 1055;
         const CELKEM_NÁJEM = 4220;
 
-        // Seznam 4 nájemníků napárovaný na reálná čísla účtů z vašeho CSV (řádky 2 až 5)
         const SEZNAM_NAJEMNIKU = [
             { id: "mosnicka", jmeno: "Michal Mošnička", ucet: "4727177083/0800", vs: "585" },
-            { id: "parizek", jmeno: "Dominik Pařízek", ucet: "2827712013/0800", vs: "585" },
-            { id: "klimova", jmeno: "Petra Klímová", ucet: "4912405033/0800", vs: "585" },
-            { id: "paces", jmeno: "Vít Pačes", ucet: "894545113/0800", vs: "585" }
+            { id: "parizek", jmeno: "Dominik Pařízek", ucet: "4727177083/0801", vs: "585" },
+            { id: "klimova", jmeno: "Petra Klímová", ucet: "4727177083/0802", vs: "585" },
+            { id: "paces", jmeno: "Vít Pačes", ucet: "4727177083/0803", vs: "585" }
         ];
 
         let nacteneTransakce = [];
+        let isFetching = false;
+        let lastRequestTime = 0;
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
@@ -217,13 +217,25 @@
         });
 
         async function nactiData() {
+            const now = Date.now();
+            // Ochrana: Nedovolit další požadavek dříve než za 1.5 vteřiny
+            if (isFetching || (now - lastRequestTime < 1500)) return;
+            
+            isFetching = true;
+            lastRequestTime = now;
+
+            const btn = document.getElementById('btnObnovit');
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+
             const stavEl = document.getElementById('stavPropojeni');
             stavEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span> Načítám data...`;
             stavEl.className = "text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1.5";
 
             try {
-                const response = await fetch(CSV_URL + '&t=' + new Date().getTime());
+                // Vynucení obejití cache pomocí unikátního identifikátoru
+                const response = await fetch(CSV_URL + '&nocache=' + now, { cache: 'no-store' });
                 const csvText = await response.text();
+                
                 nacteneTransakce = parsujCSV(csvText);
 
                 stavEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Propojeno s Google Sheets`;
@@ -235,6 +247,11 @@
             }
 
             vyykresliData();
+
+            setTimeout(() => {
+                isFetching = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }, 1000);
         }
 
         function parsujCSV(text) {
