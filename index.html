@@ -200,6 +200,7 @@
         const CASTEK_NA_OSOBU = 1055;
         const CELKEM_NÁJEM = 4220;
 
+        // Správně nastavená čísla účtů podle reálných dat z Google Tabulky
         const SEZNAM_NAJEMNIKU = [
             { id: "mosnicka", jmeno: "Michal Mošnička", ucet: "4727177083/0800", vs: "585" },
             { id: "parizek", jmeno: "Dominik Pařízek", ucet: "2827712013/0800", vs: "585" },
@@ -227,7 +228,6 @@
             stavEl.className = "text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1.5";
 
             try {
-                // Smazání případné mezipaměti prohlížeče pro tento soubor, pokud je podporováno
                 if ('caches' in window) {
                     const cacheNames = await caches.keys();
                     for (let name of cacheNames) {
@@ -235,7 +235,6 @@
                     }
                 }
 
-                // Vynucení čerstvého stažení přímo ze serveru Googlu pomocí silných HTTP hlaviček a unikátního času
                 const response = await fetch(CSV_URL + '&_=' + new Date().getTime(), {
                     cache: 'reload',
                     headers: {
